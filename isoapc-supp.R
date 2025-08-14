@@ -1,142 +1,93 @@
 ### Purpose: Conduct APC supplementary analyses of time spent alone
 ### Author:  S Bauldry 
-### Date:    Sep 14, 2024
+### Date:    Aug 14, 2025
 
-### Set working directory and load libraries
 setwd("~/desktop")
 library(tidyverse)
-library(ggpubr)
 library(weights)
+library(patchwork)
+
 
 ### Read helper functions
 source("isoapc-functions.R")
 
+
 ### Read prepared ATUS data
-atus <- read_csv("isoapc-data.csv", 
-                 col_types = list(a = "f", p = "f", c = "f", 
-                                  fem = "f", rce = "f", edu = "f", 
-                                  day = "f", hol = "f")) |>
+atus <- read_csv("isoapc-data.csv", col_types = list(a = "f", p = "f", c = "f", day = "f", hol = "f")) |>
   mutate(
-    a = fct_relevel(a, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", 
-                    "12", "13"),
+    a = fct_relevel(a, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"),
     p = fct_relevel(p, "1", "2", "3", "4"),
-    c = fct_relevel(c, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", 
-                    "12", "13", "14", "15", "16"))
-
-# select stratified samples
-atus_nla <- atus |> filter(lal == 0)
-atus_lal <- atus |> filter(lal == 1)
-
-atus_nft <- atus |> filter(fte == 0)
-atus_fte <- atus |> filter(fte == 1)
+    c = fct_relevel(c, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"),
+    wke = ifelse(day %in% c(1,7), 1, 0))
 
 
-### Table S1 - descriptive statistics
-wtd.mean(atus$nonwork_alone_min, weights = atus$rwt)
-wpct(atus$lal, weight = atus$rwt)
-wpct(atus$fte, weight = atus$rwt)
+### Supplementary analysis 1 -- stratify by weekday vs weekend
+atus_day <- atus |> filter(wke == 0)
+atus_end <- atus |> filter(wke == 1)
 
-old <- options(pillar.sigfig = 4)
-lal_means <- atus |>
-  group_by(lal) |>
-  summarise(n = n(),
-            wm = sum(nonwork_alone_min*rwt)/sum(rwt))
-lal_means
+cns_day <- apc_model_mmmapg(atus_day, "nonwork_alone_min")
+cns_end <- apc_model_mmmapg(atus_end, "nonwork_alone_min")
 
-emp_means <- atus |>
-  group_by(fte) |>
-  summarise(n = n(),
-            wm = sum(nonwork_alone_min*rwt)/sum(rwt))
-emp_means
+te_day <- total_effects_range(atus_day, "nonwork_alone_min", 5, cns_day$alpha[1], cns_day$alpha[2], cns_day$alpha[3])
+te_end <- total_effects_range(atus_end, "nonwork_alone_min", 5, cns_end$alpha[1], cns_end$alpha[2], cns_end$alpha[3])
 
+sf1_day_a <- te_fig(subset(te_day, apc == "age"), 100, 600, "Weekday", xn = "age", c("15", "75"), c("15", "79"))
+sf1_day_p <- te_fig(subset(te_day, apc == "year"), 100, 600, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+sf1_day_c <- te_fig(subset(te_day, apc == "cohort"), 100, 600, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
 
-### Figure S1 - solution line
-theta_1 <- apc_model(atus, "nonwork_alone_min")
-figs1 <- fig2D(theta_1[1], theta_1[2], "")
-ggsave("figS1.jpg", figs1)
+sf1_end_a <- te_fig(subset(te_end, apc == "age"), 100, 600, "Weekend", xn = "age", c("15", "75"), c("15", "79"))
+sf1_end_p <- te_fig(subset(te_end, apc == "year"), 100, 600, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+sf1_end_c <- te_fig(subset(te_end, apc == "cohort"), 100, 600, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
 
-
-### Figure S2 - solution line with additional covariates
-theta_2 <- apc_model_cov(atus, "nonwork_alone_min")
-figs2 <- fig2D(theta_2[1], theta_2[2], "")
-ggsave("figS2.jpg", figs2)
-
-
-### Figure S3 - solution line
-theta_3 <- apc_model(atus_lal, "nonwork_alone_min")
-theta_3
-figs3 <- fig2D(theta_3[1], theta_3[2], "")
-ggsave("figS3.jpg", figs3)
-
-
-### Figure S4 - solution line
-theta_4 <- apc_model(atus_nla, "nonwork_alone_min")
-theta_4
-figs4 <- fig2D(theta_4[1], theta_4[2], "")
-ggsave("figS4.jpg", figs4)
-
-
-### Figure S5 - solution line
-theta_5 <- apc_model(atus_nft, "nonwork_alone_min")
-theta_5
-figs5 <- fig2D(theta_5[1], theta_5[2], "")
-ggsave("figS5.jpg", figs5)
-
-
-### Figure S6 - solution line
-theta_6 <- apc_model(atus_fte, "nonwork_alone_min")
-theta_6
-figs6 <- fig2D(theta_6[1], theta_6[2], "")
-ggsave("figS6.jpg", figs6)
-
-
-### Figure S7 - Lexis diagrams by living alone
-fs7_lal <- figLexis(atus_lal, "nonwork_alone_min", 175, 700, "living alone")
-fs7_nla <- figLexis(atus_nla, "nonwork_alone_min", 175, 700, "not living alone")
-figs7 <- ggarrange(fs7_lal, fs7_nla, nrow = 1)
-ggsave("figS7.jpg", figs7)
-
-
-### Figure S8 - Lexis diagrams by working full time
-fs8_fte <- figLexis(atus_fte, "nonwork_alone_min", 175, 500, "working full time")
-fs8_nft <- figLexis(atus_nft, "nonwork_alone_min", 175, 500, "not working full time")
-figs8 <- ggarrange(fs8_fte, fs8_nft, nrow = 1)
-ggsave("figS8.jpg", figs8)
-
-
-### Figure S9 - total effects including additional covariates
-ub <- 650
-te_all   <- total_effects_range_cov(atus, "nonwork_alone_min")
-te_all_a <- te_age_fig(subset(te_all, apc == "age"), 0, ub)
-te_all_p <- te_per_fig(subset(te_all, apc == "year"), 0, ub)
-te_all_c <- te_coh_fig(subset(te_all, apc == "cohort"), 0, ub)
-figs9    <- ggarrange(te_all_a, te_all_p, te_all_c, nrow = 1)
-figs9
-ggsave("figS9.jpg", figs9)
-
-
-### Figure S10 - Lexis diagram for leisure activities
-fs10 <- figLexis(atus_lal, "leisure_alone_min", 50, 450, "")
-ggsave("figS10.jpg", fs10)
-
-
-### Figure S11 - solution line
-theta_11 <- apc_model(atus, "leisure_alone_min")
-theta_11
-figs11 <- fig2D(theta_11[1], theta_11[2], "")
-ggsave("figS11.jpg", figs11)
-
-
-### Figure S12 - total effects leisure activities
-ub <- 450
-te_all   <- total_effects_range_cov(atus, "leisure_alone_min")
-te_all_a <- te_age_fig(subset(te_all, apc == "age"), 0, ub)
-te_all_p <- te_per_fig(subset(te_all, apc == "year"), 0, ub)
-te_all_c <- te_coh_fig(subset(te_all, apc == "cohort"), 0, ub)
-figs12   <- ggarrange(te_all_a, te_all_p, te_all_c, nrow = 1)
-figs12
-ggsave("figS12.jpg", figs12)
+sf1 <- sf1_day_a + sf1_day_p + sf1_day_c + sf1_end_a + sf1_end_p + sf1_end_c
+sf1
+ggsave("sf1.jpg", sf1, dpi = 300)
 
 
 
+### Supplementary analysis 2 -- leisure activities
+atus_w <- atus |> filter(fem == 1)
+atus_m <- atus |> filter(fem == 0)
+
+cns_w <- apc_model_mmmapg(atus_w, "leisure_alone_min")
+cns_m <- apc_model_mmmapg(atus_m, "leisure_alone_min")
+
+te_w <- total_effects_range(atus_w, "leisure_alone_min", 5, cns_w$alpha[1], cns_w$alpha[2], cns_w$alpha[3])
+te_m <- total_effects_range(atus_m, "leisure_alone_min", 5, cns_m$alpha[1], cns_m$alpha[2], cns_m$alpha[3])
+
+sf2_w_a <- te_fig(subset(te_w, apc == "age"), 0, 300, "Women", xn = "age", c("15", "75"), c("15", "79"))
+sf2_w_p <- te_fig(subset(te_w, apc == "year"), 0, 300, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+sf2_w_c <- te_fig(subset(te_w, apc == "cohort"), 0, 300, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
+
+sf2_m_a <- te_fig(subset(te_m, apc == "age"), 0, 300, "Men", xn = "age", c("15", "75"), c("15", "79"))
+sf2_m_p <- te_fig(subset(te_m, apc == "year"), 0, 300, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+sf2_m_c <- te_fig(subset(te_m, apc == "cohort"), 0, 300, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
+
+sf2 <- sf2_w_a + sf2_w_p + sf2_w_c + sf2_m_a + sf2_m_p + sf2_m_c
+sf2
+ggsave("sf2.jpg", sf2, dpi = 300)
+
+
+
+### Supplementary analysis 3 -- check exclude post-pandemic period
+atus_wp <- atus |> filter(fem == 1 & year < 2020)
+atus_mp <- atus |> filter(fem == 0 & year < 2020)
+
+cns_wp <- apc_model_mmmapg(atus_wp, "nonwork_alone_min")
+cns_mp <- apc_model_mmmapg(atus_mp, "nonwork_alone_min")
+
+te_wp <- total_effects_range(atus_wp, "nonwork_alone_min", 5, cns_wp$alpha[1], cns_wp$alpha[2], cns_wp$alpha[3])
+te_mp <- total_effects_range(atus_mp, "nonwork_alone_min", 5, cns_mp$alpha[1], cns_mp$alpha[2], cns_mp$alpha[3])
+
+sf3_wp_a <- te_fig(subset(te_wp, apc == "age"), 0, 600, "Women", xn = "age", c("15", "75"), c("15", "79"))
+sf3_wp_p <- te_fig(subset(te_wp, apc == "year"), 0, 600, "", xn = "year", c("2003", "2018"), c("2003", "2019"))
+sf3_wp_c <- te_fig(subset(te_wp, apc == "cohort"), 0, 600, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
+
+sf3_mp_a <- te_fig(subset(te_mp, apc == "age"), 0, 600, "Men", xn = "age", c("15", "75"), c("15", "79"))
+sf3_mp_p <- te_fig(subset(te_mp, apc == "year"), 0, 600, "", xn = "year", c("2003", "2018"), c("2003", "2019"))
+sf3_mp_c <- te_fig(subset(te_mp, apc == "cohort"), 0, 600, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
+
+sf3 <- sf3_wp_a + sf3_wp_p + sf3_wp_c + sf3_mp_a + sf3_mp_p + sf3_mp_c
+sf3
+ggsave("sf3.jpg", sf3, dpi = 300)
 

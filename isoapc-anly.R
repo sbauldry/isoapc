@@ -2,14 +2,15 @@
 ### Author:  S Bauldry 
 ### Date:    Oct 17, 2024
 
-### Set working directory and load libraries
 setwd("~/desktop")
 library(tidyverse)
-library(ggpubr)
 library(weights)
+library(patchwork)
+
 
 ### Read helper functions
 source("isoapc-functions.R")
+
 
 ### Read prepared ATUS data
 atus <- read_csv("isoapc-data.csv", col_types = list(a = "f", p = "f", c = "f", day = "f", hol = "f")) |>
@@ -18,86 +19,53 @@ atus <- read_csv("isoapc-data.csv", col_types = list(a = "f", p = "f", c = "f", 
     p = fct_relevel(p, "1", "2", "3", "4"),
     c = fct_relevel(c, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"))
 
+# select subsamples for women and men
+atus_w <- atus |> filter(fem == 1)
+atus_m <- atus |> filter(fem == 0)
 
 
-### Figure 1 - Univariate trend in time spent alone over time
-f1_a <- figUniAPC(atus, "age", "nonwork_alone_min", 100, 500, "Age")
-f1_a <- f1_a + scale_x_continuous(name = "age", breaks = c(15,79), labels = c(15,79))
+### Figure 1: Univariate APC trends
+f1_w_a <- figUniAPC(atus_w, "age", "nonwork_alone_min", 100, 600, "Women", c(15, 79), c("15", "79"))
+f1_w_p <- figUniAPC(atus_w, "year", "nonwork_alone_min", 100, 600, "", c(2003, 2022), c("2003", "2022"))
+f1_w_c <- figUniAPC(atus_w, "cohort", "nonwork_alone_min", 100, 600, "", c(1924, 2007), c("1924", "2007"))
 
-f1_p <- figUniAPC(atus, "year", "nonwork_alone_min", 100, 500, "Period")
-f1_p <- f1_p + scale_x_continuous(name = "year", breaks = c(2003, 2022), labels = c(2003, 2022))
+f1_m_a <- figUniAPC(atus_m, "age", "nonwork_alone_min", 100, 600, "Men", c(15, 79), c("15", "79"))
+f1_m_p <- figUniAPC(atus_m, "year", "nonwork_alone_min", 100, 600, "", c(2003, 2022), c("2003", "2022"))
+f1_m_c <- figUniAPC(atus_m, "cohort", "nonwork_alone_min", 100, 600, "", c(1924, 2007), c("1924", "2007"))
 
-f1_c <- figUniAPC(atus, "cohort", "nonwork_alone_min", 100, 500, "Cohort")
-f1_c <- f1_c + scale_x_continuous(name = "cohort", breaks = c(1924, 2007), labels = c(1924, 2007))
-
-f1 <- ggarrange(f1_a, f1_p, f1_c, nrow = 1)
+f1 <- f1_w_a + f1_w_p + f1_w_c + f1_m_a + f1_m_p + f1_m_c + plot_layout(ncol = 3)
 f1
-ggsave("f1.jpg", f1, width = 10, height = 5.38)
+ggsave("f1.jpg", f1, dpi = 300)
 
-
-
-### Work out constraints on canonical solution line
-# canonical solution line and nonlinear deviations
-theta <- apc_model_theta(atus, "nonwork_alone_min", 5)
-nld   <- apc_model_nld(atus, "nonwork_alone_min", 5)
-
-# min and max alpha based on non-monotonic age effect with minimum at age 35
-contrasts(atus$a) <- contr.poly.weighted(atus$a, width = 5)
-nld_a    <- nld[nld$apc == "age", ]
-nld_a$lc <- contrasts(atus$a)[, 1]
-
-find_alpha <- function(alpha) {
-  nld_a$te <- nld_a$nld + nld_a$lc*(alpha)
-  ind <- which.min(nld_a$te)
-  age <- nld_a$index[ind]
-  return(age)
-}
-
-am <- round( theta[1], 1 )
-alpha_range <- matrix(NA, length(seq(0, am, 0.1)), 2)
-r <- 0
-for(i in seq(0, am, 0.1)) {
-  r <- r + 1
-  alpha_range[r,1] <- i
-  alpha_range[r,2] <- find_alpha(i)
-}
-min_alpha <- min(alpha_range[alpha_range[, 2] == 35, 1])
-max_alpha <- max(alpha_range[alpha_range[, 2] == 35, 1])
-mid_alpha <- (max_alpha - min_alpha)/2 + min_alpha
-
-min_pi <- theta[1] - max_alpha
-mid_pi <- theta[1] - mid_alpha
-max_pi <- theta[1] - min_alpha
-
-min_gamma <- theta[2] - max_pi
-mid_gamma <- theta[2] - mid_pi
-max_gamma <- theta[2] - min_pi
-
-c(min_alpha, mid_alpha, max_alpha)
-c(min_pi, mid_pi, max_pi)
-c(min_gamma, mid_gamma, max_gamma)
 
 ### Figure 2 - Canonical solution line with constrained region noted
-f2 <- fig2D(theta[1], theta[2], -2, 5, min_alpha, mid_alpha, max_alpha)
-f2
-ggsave("f2.jpg", f2, width = 8, height = 8)
+cns_w <- apc_model_mmmapg(atus_w, "nonwork_alone_min")
+cns_m <- apc_model_mmmapg(atus_m, "nonwork_alone_min")
 
+# report min and max for figure notes
+c( cns_w$alpha[1], cns_w$alpha[3], cns_w$pi[1], cns_w$pi[3], cns_w$gamma[1], cns_w$gamma[3] )
+c( cns_m$alpha[1], cns_m$alpha[3], cns_m$pi[1], cns_m$pi[3], cns_m$gamma[1], cns_m$gamma[3] )
+
+f2_w <- fig2D(cns_w$theta[1], cns_w$theta[2], -3, 6, cns_w$alpha[1], cns_w$alpha[2], cns_w$alpha[3], "Women")
+f2_m <- fig2D(cns_m$theta[1], cns_m$theta[2], -3, 6, cns_m$alpha[1], cns_m$alpha[2], cns_m$alpha[3], "Men")
+
+f2 <- f2_w + f2_m 
+f2
+ggsave("f2.jpg", f2, dpi = 300)
 
 
 ### Figure 3 - Range of total effects based on constrained region of canonical solution line
-te <- total_effects_range(atus, "nonwork_alone_min", 5, min_alpha, mid_alpha, max_alpha)
-te
+te_w <- total_effects_range(atus_w, "nonwork_alone_min", 5, cns_w$alpha[1], cns_w$alpha[2], cns_w$alpha[3])
+te_m <- total_effects_range(atus_m, "nonwork_alone_min", 5, cns_m$alpha[1], cns_m$alpha[2], cns_m$alpha[3])
 
-f3a <- te_fig(subset(te, apc == "age"), 100, 500, "Age")
-f3a <- f3a + scale_x_discrete(name = "age", breaks = c("15", "75"), labels = c("15", "79"))
+f3_w_a <- te_fig(subset(te_w, apc == "age"), 100, 500, "Women", xn = "age", c("15", "75"), c("15", "79"))
+f3_w_p <- te_fig(subset(te_w, apc == "year"), 100, 500, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+f3_w_c <- te_fig(subset(te_w, apc == "cohort"), 100, 500, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
 
-f3p <- te_fig(subset(te, apc == "year"), 100, 500, "Period")
-f3p <- f3p + scale_x_discrete(name = "year", breaks = c("2003", "2018"), labels = c("2003", "2022"))
+f3_m_a <- te_fig(subset(te_m, apc == "age"), 100, 500, "Men", xn = "age", c("15", "75"), c("15", "79"))
+f3_m_p <- te_fig(subset(te_m, apc == "year"), 100, 500, "", xn = "year", c("2003", "2018"), c("2003", "2022"))
+f3_m_c <- te_fig(subset(te_m, apc == "cohort"), 100, 500, "", xn = "cohort", c("1924", "1999"), c("1924", "2007"))
 
-f3c <- te_fig(subset(te, apc == "cohort"), 100, 500, "Cohort")
-f3c <- f3c + scale_x_discrete(name = "cohort", breaks = c("1924", "1999"), labels = c("1924", "2007"))
-
-f3  <- ggarrange(f3a, f3p, f3c, nrow = 1)
+f3 <- f3_w_a + f3_w_p + f3_w_c + f3_m_a + f3_m_p + f3_m_c
 f3
-ggsave("f3.jpg", f3, width = 10, height = 5.38)
-
+ggsave("f3.jpg", f3, dpi = 300)

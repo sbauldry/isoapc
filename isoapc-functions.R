@@ -1,6 +1,8 @@
-### Purpose: Various helper functions for preliminary APC analyses
+### Purpose: Various helper functions for APC analyses
 ### Author:  S Bauldry 
-### Date:    Oct 17, 2024
+### Date:    Aug 4, 2025
+
+
 
 ### Function to calculate weighted orthogonal polynomial contrasts
 ### Adapted from Elbers (https://github.com/elbersb/weightedcontrasts)
@@ -28,6 +30,8 @@ contr.poly.weighted <- function (f, width = 1) {
 }
 
 
+
+
 ### Functions to extract nonlinear effects and compute total effects
 ### Adapted from Elbers (https://github.com/elbersb/weightedcontrasts)
 deviations_w_intercept <- function(model, set, contrasts) {
@@ -51,22 +55,28 @@ total_effect <- function(model, set, contrasts, linear_coef) {
 }
 
 
-### Function for univariate APC plots
-figUniAPC <- function(df, v, dv, lb, ub, tit) {
+
+
+### Function to generate univariate APC plots
+figUniAPC <- function(df, v, dv, lb, ub, tit, xb, xl) {
+  
   mn <- df |>
-    group_by(!!sym(v)) |>
-    summarise(wm = sum(!!sym(dv)*rwt)/sum(rwt))
-  f <- ggplot(mn, aes(x = !!sym(v), y = wm)) +
+    group_by(.data[[v]]) |>
+    summarise(wm = sum(.data[[dv]]*rwt)/sum(rwt), .groups = "drop")
+  
+  f <- ggplot(mn, aes(x = .data[[v]], y = wm)) +
     geom_point() +
     geom_smooth(method = "gam", formula = y ~ s(x), se = F) +
     scale_y_continuous(name = "mean minutes", limits = c(lb, ub)) +
+    scale_x_continuous(name = v, breaks = xb, labels = xl) +
     ggtitle(tit) +
-    theme_light() +
+    theme_minimal() +
     theme(
       axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 14, family = "Times New Roman"),
-      plot.title = element_text(size = 16, family = "Times New Roman")
+      axis.title = element_text(size = 12, family = "Times New Roman"),
+      plot.title = element_text(size = 14, family = "Times New Roman")
     )
+  
   return(f)
 }
 
@@ -95,6 +105,8 @@ apc_model_theta <- function(df, dv, pord) {
   theta  <- c(theta1, theta2)
   return(theta)
 }
+
+
 
 
 ### Function to fit APC model and return non-linear deviations
@@ -130,8 +142,61 @@ apc_model_nld <- function(df, dv, pord) {
 }
 
 
+
+
+### Function to aid finding alpha constraints
+find_alpha <- function(alpha, nld_a) {
+  nld_a$te <- nld_a$nld + nld_a$lc*(alpha)
+  ind <- which.min(nld_a$te)
+  age <- nld_a$index[ind]
+  return(age)
+}
+
+
+
+
+### Function to find min/mid/max alpha/pi/gamma
+apc_model_mmmapg <- function(df, dv) {
+  theta <- apc_model_theta(df, dv, 5)
+  nld   <- apc_model_nld(df, dv, 5)
+  
+  contrasts(df$a) <- contr.poly.weighted(df$a, width = 5)
+  nld_a           <- nld[nld$apc == "age", ]
+  nld_a$lc        <- contrasts(df$a)[, 1]
+  
+  am <- round( theta[1], 1 )
+  alpha_range <- matrix(NA, length(seq(0, am, 0.1)), 2)
+  r <- 0
+  for(i in seq(0, am, 0.1)) {
+    r <- r + 1
+    alpha_range[r,1] <- i
+    alpha_range[r,2] <- find_alpha(i, nld_a)
+  }
+  min_alpha <- min(alpha_range[alpha_range[, 2] == 35, 1])
+  max_alpha <- max(alpha_range[alpha_range[, 2] == 35, 1])
+  mid_alpha <- (max_alpha - min_alpha)/2 + min_alpha
+  
+  min_pi <- theta[1] - max_alpha
+  mid_pi <- theta[1] - mid_alpha
+  max_pi <- theta[1] - min_alpha
+  
+  min_gamma <- theta[2] - max_pi
+  mid_gamma <- theta[2] - mid_pi
+  max_gamma <- theta[2] - min_pi
+  
+  return( list(
+    theta = theta,
+    alpha = c(min = min_alpha, mid = mid_alpha, max = max_alpha),
+    pi = c(min = min_pi, mid = mid_pi, max = max_pi),
+    gamma = c(min = min_gamma, mid = mid_gamma, max = max_gamma)
+  ) )
+}
+
+
+
+
 ### Function for 2D APC plot
-fig2D <- function(theta1, theta2, lim1, lim2, min_alpha, mid_alpha, max_alpha) {
+fig2D <- function(theta1, theta2, lim1, lim2, min_alpha, mid_alpha, max_alpha, tit) {
   min_pi     <- theta1 - max_alpha
   mid_pi     <- theta1 - mid_alpha
   max_pi     <- theta1 - min_alpha
@@ -144,17 +209,20 @@ fig2D <- function(theta1, theta2, lim1, lim2, min_alpha, mid_alpha, max_alpha) {
     geom_vline(xintercept = 0, linetype = "dotted") +
     geom_segment(aes(x = lim1, y = max_alpha, xend = min_pi, yend = max_alpha), linetype = "dashed", color = "darkblue") + 
     geom_segment(aes(x = lim1, y = min_alpha, xend = max_pi, yend = min_alpha), linetype = "dashed", color = "darkblue") + 
-    geom_text(aes(x = lim1 + 0.1, y = max_alpha + 0.1, label = "maximum linear age effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
-    geom_text(aes(x = lim1 + 0.1, y = min_alpha + 0.1, label = "minimum linear age effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
+    geom_text(aes(x = lim1 + 0.1, y = max_alpha + 0.1, label = "max age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
+    geom_text(aes(x = lim1 + 0.1, y = min_alpha + 0.1, label = "min age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
     scale_y_continuous("age linear effect", limits = c(lim1, lim2), sec.axis = sec_axis(~.+(theta2 - theta1), name = "cohort linear effect")) +
     scale_x_continuous("period linear effect", limits = c(lim1, lim2), expand = c(0, 0), sec.axis = dup_axis()) +
-    theme_light() +
+    ggtitle(tit) +
+    theme_minimal() +
     theme(
       axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 14, family = "Times New Roman"),
-      plot.title = element_text(size = 16, family = "Times New Roman"))
+      axis.title = element_text(size = 12, family = "Times New Roman"),
+      plot.title = element_text(size = 14, family = "Times New Roman"))
   return(f)
 }
+
+
 
 
 ### Function to calculate total effects
@@ -210,18 +278,21 @@ total_effects_range <- function(df, dv, pord, min_alpha, mid_alpha, max_alpha) {
 }
 
 
-### Function for total effect plots
-te_fig <- function(d, ll, ul, tit) {
+
+
+### Function to plot total effects
+te_fig <- function(d, ll, ul, tit, xn, xb, xl) {
   f <- ggplot(data = d, mapping = aes(x = index, group = 1)) +
     geom_line(mapping = aes(y = mid_te)) +
     geom_ribbon(mapping = aes(ymin = min_te, ymax = max_te), fill = "lightgreen", alpha = 0.3) +
     scale_y_continuous(name = "minutes alone", limits = c(ll, ul)) +
+    scale_x_discrete(name = xn, breaks = xb, labels = xl) +
     ggtitle(tit) +
-    theme_light() +
+    theme_minimal() +
     theme(
       axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 14, family = "Times New Roman"),
-      plot.title = element_text(size = 16, family = "Times New Roman"))
+      axis.title = element_text(size = 12, family = "Times New Roman"),
+      plot.title = element_text(size = 14, family = "Times New Roman"))
   return(f)
 }
 
