@@ -65,16 +65,16 @@ figUniAPC <- function(df, v, dv, lb, ub, tit, xb, xl) {
     summarise(wm = sum(.data[[dv]]*rwt)/sum(rwt), .groups = "drop")
   
   f <- ggplot(mn, aes(x = .data[[v]], y = wm)) +
-    geom_point() +
-    geom_smooth(method = "gam", formula = y ~ s(x), se = F) +
+    geom_point(size = 0.5) +
+    geom_smooth(method = "gam", formula = y ~ s(x), se = F, linewidth = 0.5) +
     scale_y_continuous(name = "mean minutes", limits = c(lb, ub)) +
     scale_x_continuous(name = v, breaks = xb, labels = xl) +
     ggtitle(tit) +
     theme_minimal() +
     theme(
-      axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 12, family = "Times New Roman"),
-      plot.title = element_text(size = 14, family = "Times New Roman")
+      axis.text  = element_text(size = 8, family = "Times New Roman"),
+      axis.title = element_text(size = 10, family = "Times New Roman"),
+      plot.title = element_text(size = 12, family = "Times New Roman")
     )
   
   return(f)
@@ -202,23 +202,23 @@ fig2D <- function(theta1, theta2, lim1, lim2, min_alpha, mid_alpha, max_alpha, t
   max_pi     <- theta1 - min_alpha
 
   f <- ggplot() +
-    geom_abline(aes(intercept = theta1, slope = -1), linewidth = 1, color = "darkblue") +
+    geom_abline(aes(intercept = theta1, slope = -1), color = "darkblue", linewidth = 0.5) +
     geom_point(aes(x = mid_pi, y = mid_alpha), size = 3) +
-    geom_hline(yintercept = 0, linetype = "dotted") +
-    geom_hline(yintercept = -(theta2 - theta1), linetype = "dotted") +
-    geom_vline(xintercept = 0, linetype = "dotted") +
-    geom_segment(aes(x = lim1, y = max_alpha, xend = min_pi, yend = max_alpha), linetype = "dashed", color = "darkblue") + 
-    geom_segment(aes(x = lim1, y = min_alpha, xend = max_pi, yend = min_alpha), linetype = "dashed", color = "darkblue") + 
-    geom_text(aes(x = lim1 + 0.1, y = max_alpha + 0.1, label = "max age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
-    geom_text(aes(x = lim1 + 0.1, y = min_alpha + 0.1, label = "min age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman") +
+    geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.5) +
+    geom_hline(yintercept = -(theta2 - theta1), linetype = "dotted", linewidth = 0.5) +
+    geom_vline(xintercept = 0, linetype = "dotted", linewidth = 0.5) +
+    geom_segment(aes(x = lim1, y = max_alpha, xend = min_pi, yend = max_alpha), linetype = "dashed", color = "darkblue", linewidth = 0.5) + 
+    geom_segment(aes(x = lim1, y = min_alpha, xend = max_pi, yend = min_alpha), linetype = "dashed", color = "darkblue", linewidth = 0.5) + 
+    geom_text(aes(x = lim1 + 0.1, y = max_alpha + 0.1, label = "max age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman", size = 2.5) +
+    geom_text(aes(x = lim1 + 0.1, y = min_alpha + 0.1, label = "min age linear effect"),  hjust = 0, vjust = 0, family = "Times New Roman", size = 2.5) +
     scale_y_continuous("age linear effect", limits = c(lim1, lim2), sec.axis = sec_axis(~.+(theta2 - theta1), name = "cohort linear effect")) +
     scale_x_continuous("period linear effect", limits = c(lim1, lim2), expand = c(0, 0), sec.axis = dup_axis()) +
     ggtitle(tit) +
     theme_minimal() +
     theme(
-      axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 12, family = "Times New Roman"),
-      plot.title = element_text(size = 14, family = "Times New Roman"))
+      axis.text  = element_text(size = 8, family = "Times New Roman"),
+      axis.title = element_text(size = 10, family = "Times New Roman"),
+      plot.title = element_text(size = 12, family = "Times New Roman"))
   return(f)
 }
 
@@ -283,16 +283,16 @@ total_effects_range <- function(df, dv, pord, min_alpha, mid_alpha, max_alpha) {
 ### Function to plot total effects
 te_fig <- function(d, ll, ul, tit, xn, xb, xl) {
   f <- ggplot(data = d, mapping = aes(x = index, group = 1)) +
-    geom_line(mapping = aes(y = mid_te)) +
+    geom_line(mapping = aes(y = mid_te), linewidth = 0.3) +
     geom_ribbon(mapping = aes(ymin = min_te, ymax = max_te), fill = "lightgreen", alpha = 0.3) +
     scale_y_continuous(name = "minutes alone", limits = c(ll, ul)) +
     scale_x_discrete(name = xn, breaks = xb, labels = xl) +
     ggtitle(tit) +
     theme_minimal() +
     theme(
-      axis.text  = element_text(size = 10, family = "Times New Roman"),
-      axis.title = element_text(size = 12, family = "Times New Roman"),
-      plot.title = element_text(size = 14, family = "Times New Roman"))
+      axis.text  = element_text(size = 8, family = "Times New Roman"),
+      axis.title = element_text(size = 10, family = "Times New Roman"),
+      plot.title = element_text(size = 12, family = "Times New Roman"))
   return(f)
 }
 

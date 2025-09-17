@@ -35,7 +35,7 @@ f1_m_c <- figUniAPC(atus_m, "cohort", "nonwork_alone_min", 100, 600, "", c(1924,
 
 f1 <- f1_w_a + f1_w_p + f1_w_c + f1_m_a + f1_m_p + f1_m_c + plot_layout(ncol = 3)
 f1
-ggsave("f1.jpg", f1, dpi = 300)
+ggsave("fig1.tif", f1, height = 5, width = 7.5, units = "in", dpi = 300, compression = "lzw")
 
 
 ### Figure 2 - Canonical solution line with constrained region noted
@@ -51,7 +51,8 @@ f2_m <- fig2D(cns_m$theta[1], cns_m$theta[2], -3, 6, cns_m$alpha[1], cns_m$alpha
 
 f2 <- f2_w + f2_m 
 f2
-ggsave("f2.jpg", f2, dpi = 300)
+ggsave("fig2.tif", f2, height = 5, width = 7.5, units = "in", dpi = 300, compression = "lzw")
+
 
 
 ### Figure 3 - Range of total effects based on constrained region of canonical solution line
@@ -68,4 +69,4 @@ f3_m_c <- te_fig(subset(te_m, apc == "cohort"), 100, 500, "", xn = "cohort", c("
 
 f3 <- f3_w_a + f3_w_p + f3_w_c + f3_m_a + f3_m_p + f3_m_c
 f3
-ggsave("f3.jpg", f3, dpi = 300)
+ggsave("fig3.tif", f3, height = 5, width = 7.5, units = "in", dpi = 300, compression = "lzw")
